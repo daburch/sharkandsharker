@@ -1,6 +1,9 @@
 import argparse
 import logging
 
+from shark.shark import Shark, SharkConfig
+from config import MONITORED_IPS, LOCAL_DEFAULT_INTERFACE
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,7 +37,8 @@ def main():
 
     if args.mode == "inspect":
         # Inspect Mode creates a packet watcher but doesn't automatically scan the marketplace; allowing manual scans.
-        logger.info("TODO: Implement inspect mode")
+        shark = Shark(SharkConfig(interface=LOCAL_DEFAULT_INTERFACE, ips=MONITORED_IPS))
+        shark.begin_monitoring()
     elif args.mode == "gather":
         # Gather Mode creates a packet watcher and automatically scans the marketplace to collect large training datasets.
         logger.info("TODO: Implement gather mode")
