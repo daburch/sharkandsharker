@@ -10,4 +10,6 @@ KEEP_ALIVE_RESPONSE = (
 MARKETPLACE_REQUEST_HEADER = "0000b70d"
 MARKETPLACE_RESPONSE_HEADER = "0000b80d"
 
-H_ITEM_ID = b"DesignDataItem:Id_Item"
+H_ITEM_ID = b"DesignDataItem:Id_Item_"
+H_ITEM_PROPERTY = b"DesignDataItemPropertyType:Id_ItemPropertyType_Effect_"
+H_LEADERBOARD_RANK = b"LeaderboardRankData:Id_LeaderboardRank_"

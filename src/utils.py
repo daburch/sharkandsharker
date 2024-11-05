@@ -36,3 +36,12 @@ def vlq_decode_little_endian(byte_sequence):
         else:
             value |= byte_value << shift
             return int(value)
+
+
+def vlq_decode_big_endian(data):
+    result = 0
+    for byte in data:
+        result = (result << 7) | (byte & 0x7F)
+        if (byte & 0x80) == 0:
+            break
+    return result
