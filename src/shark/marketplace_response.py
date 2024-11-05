@@ -1,7 +1,7 @@
 import logging
 import json
 
-from utils import vlq_decode_little_endian, vlq_decode_big_endian
+from utils import vlq_decode_little_endian
 
 from constants import (
     MARKETPLACE_RESPONSE_HEADER,
