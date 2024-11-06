@@ -3,3 +3,6 @@ logging
 pyshark
 pywinauto
 keyboard
+joblib
+pandas
+scikit-learn
