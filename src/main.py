@@ -2,42 +2,28 @@ import argparse
 import logging
 import threading
 import time
-import keyboard
 
 from shark.shark import Shark, SharkConfig
-from config import MONITORED_IPS, LOCAL_DEFAULT_INTERFACE
+from shark.marketplace_response import Item
+
+from sharker.sharker import Sharker, SharkerConfig
+
+from config import MONITORED_IPS, LOCAL_DEFAULT_INTERFACE, DATA_DIR
 
 logger = logging.getLogger(__name__)
 
 
 def inspect(shark: Shark):
-    try:
-        t = threading.Thread(target=shark.packet_monitor.begin_monitoring)
+    l = len(shark.packet_monitor.responses)
+    while not shark.is_stopped():
+        # print a simplified version of the most recent response if there is a new one
+        if l != len(shark.packet_monitor.responses):
+            for item in shark.packet_monitor.responses[-1].items:
+                logger.info(f"{item.name}: {item.price}")
 
-        t.start()
+            l = len(shark.packet_monitor.responses)
 
-        # infinite loop to print out the results of the watcher thread marketplace responses
-        l = len(shark.packet_monitor.responses)
-        while True:
-            if shark.is_stopped():
-                break
-
-            # print a simplified version of the most recent response if there is a new one
-            if l != len(shark.packet_monitor.responses):
-                for item in shark.packet_monitor.responses[-1].items:
-                    logger.info(f"{item.name}: {item.price}")
-
-                l = len(shark.packet_monitor.responses)
-
-            time.sleep(1)
-    finally:
-        t.join()
-
-
-def listen_for_keypress(shark: Shark):
-    keyboard.wait("`")
-    logger.info("Keypress detected. Stopping all threads.")
-    shark.end_monitoring()
+        time.sleep(1)
 
 
 def main():
@@ -64,33 +50,89 @@ def main():
         default="predict",
         required=False,
         help="Mode of operation",
-        choices=["inspect", "gather", "train", "predict"],
+        choices=["inspect", "scan", "train", "predict"],
     )
     args = parser.parse_args()
 
     if args.mode == "inspect":
         # Inspect Mode creates a packet watcher but doesn't automatically scan the marketplace; allowing manual scans.
-        shark = Shark(SharkConfig(interface=LOCAL_DEFAULT_INTERFACE, ips=MONITORED_IPS))
-        packet_monitor_thread = threading.Thread(target=inspect, args=(shark,))
-        keypress_listener_thread = threading.Thread(
-            target=listen_for_keypress, args=(shark,)
+        shark = Shark(
+            SharkConfig(
+                interface=LOCAL_DEFAULT_INTERFACE,
+                ips=MONITORED_IPS,
+                data_dir=f"{DATA_DIR}\export",
+            )
         )
+        packet_monitor_thread = threading.Thread(
+            target=shark.packet_monitor.begin_monitoring
+        )
+        keypress_listener_thread = threading.Thread(target=shark.listen_for_keypress)
+        packet_logger_thread = threading.Thread(target=inspect, args=(shark,))
 
         packet_monitor_thread.start()
         keypress_listener_thread.start()
+        packet_logger_thread.start()
 
         packet_monitor_thread.join()
         keypress_listener_thread.join()
+        packet_logger_thread.join()
 
-    elif args.mode == "gather":
-        # Gather Mode creates a packet watcher and automatically scans the marketplace to collect large training datasets.
-        logger.info("TODO: Implement gather mode")
+        logger.info("Shark and Sharker has stopped.")
+        logger.info(f"Collected {len(shark.packet_monitor.responses)} responses.")
+
+        shark.export_data()
+
+    elif args.mode == "scan":
+        # scan Mode creates a packet watcher and automatically scans the marketplace to collect large training datasets.
+        logger.info("TODO: Implement scan mode")
     elif args.mode == "train":
         # Train Mode trains the model using the gathered data.
-        logger.info("TODO: Implement train mode")
+        sharker = Sharker(
+            SharkerConfig(
+                model_path=f"{DATA_DIR}",
+                model_name=f"model.pkl",
+                raw_data_path=f"{DATA_DIR}\export",
+                prepared_data_path=f"{DATA_DIR}\prepared",
+            )
+        )
+
+        sharker.train()
     elif args.mode == "predict":
         # Predict Mode uses the trained model to predict prices.
-        logger.info("TODO: Implement predict mode")
+        sharker = Sharker(
+            SharkerConfig(
+                model_path=f"{DATA_DIR}",
+                model_name=f"model.pkl",
+                raw_data_path=f"{DATA_DIR}\export",
+                prepared_data_path=f"{DATA_DIR}\prepared",
+            )
+        )
+
+        sample_item_raw = {
+            "name": "AdventurerBoots",
+            "rarity": "Unique",
+            "stack_count": 1,
+            "properties": {
+                "ArmorRating": 25,
+                "MoveSpeed": 6,
+                "Dexterity": 7,
+                "MemoryCapacityBonus": 50,
+                "MagicalDamageReduction": 6,
+                "ProjectileReductionMod": 10,
+                "BuffDurationBonus": 48,
+                "MemoryCapacityAdd": 2,
+            },
+            "loot_state": "Looted",
+            "found_by_name": "Love2Fuk",
+            "found_by_tag": "Barbarian#11123811",
+            "sold_by_name": "Love2Fuk",
+            "sold_by_tag": "Barbarian#11123811",
+            "sold_by_leaderboard_rank": "Apprentice_I",
+            "price": 333,
+            "expiry_ts": "2024-11-12T17:42:12.508182",
+        }
+        prediction = sharker.predict(Item.from_dict(sample_item_raw))
+        logger.info(f"Predicted price: {prediction}")
     else:
         logger.error("Invalid mode")
 
