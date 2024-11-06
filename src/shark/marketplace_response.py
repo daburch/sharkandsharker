@@ -262,7 +262,6 @@ class MarketplaceResponse:
         self.header_bytes = self.payload[:2]
 
         # self.payload[2:6] is the marketplace response header
-        self.item_count = 0
 
         # Convert the search string to bytes
         item_start = self.payload.find(H_ITEM_ID, 6)
