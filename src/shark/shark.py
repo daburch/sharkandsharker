@@ -1,4 +1,7 @@
 import logging
+import pywinauto
+import asyncio
+
 from dataclasses import dataclass
 from shark.packet_monitor import PacketMonitor, PacketMonitorConfig
 
@@ -25,8 +28,24 @@ class Shark:
             )
         )
 
+        self.window = pywinauto.Application().connect(path="Dark and Darker")[
+            "Dark and Darker"
+        ]
+
     def begin_monitoring(self):
         """
         Monitor network traffic for marketplace data packets.
         """
-        self.packet_monitor.begin_monitoring()
+        asyncio.run(self.packet_monitor.begin_monitoring())
+
+    def end_monitoring(self):
+        """
+        Stop monitoring network traffic.
+        """
+        self.packet_monitor.end_monitoring()
+
+    def is_stopped(self):
+        """
+        Check if the packet monitor has been stopped.
+        """
+        return self.packet_monitor.is_stopped()
