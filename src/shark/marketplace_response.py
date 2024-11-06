@@ -152,7 +152,8 @@ class Item:
             while y < price_start and self.payload[y : y + 1].isalnum():
                 y += 1
 
-            self.found_by_name = self.payload[x:y].decode("utf-8")
+            # there is an r at the end of each found by name that needs to be removed
+            self.found_by_name = self.payload[x : y - 1].decode("utf-8")
 
             self.found_by_tag = self.payload[y + 1 : price_start].decode("utf-8")
 
@@ -221,9 +222,25 @@ class Item:
 
         return len(self.payload)
 
+    @classmethod
+    def from_dict(cls, data):
+        item = cls(None)
+        item.name = data.get("name")
+        item.rarity = data.get("rarity")
+        item.stack_count = data.get("stack_count")
+        item.properties = data.get("properties", {})
+        item.loot_state = data.get("loot_state")
+        item.found_by_name = data.get("found_by_name")
+        item.found_by_tag = data.get("found_by_tag")
+        item.sold_by_name = data.get("sold_by_name")
+        item.sold_by_tag = data.get("sold_by_tag")
+        item.sold_by_leaderboard_rank = data.get("sold_by_leaderboard_rank")
+        item.price = data.get("price")
+        item.expiry_ts = datetime.fromisoformat(data.get("expiry_ts"))
+        return item
+
     def dict(self):
         return {
-            "header_bytes": self.header_bytes.hex(),
             "name": self.name,
             "rarity": self.rarity,
             "stack_count": self.stack_count,
@@ -262,7 +279,6 @@ class MarketplaceResponse:
         self.header_bytes = self.payload[:2]
 
         # self.payload[2:6] is the marketplace response header
-        self.item_count = 0
 
         # Convert the search string to bytes
         item_start = self.payload.find(H_ITEM_ID, 6)

@@ -1,5 +1,7 @@
 import logging
 import pyshark
+import threading
+import asyncio
 
 from pyshark.packet.packet import Packet
 
@@ -27,11 +29,15 @@ class PacketMonitor:
         self.interface = config.interface
         self.bpf_filter = config.bpf_filter
         self.ack_map = {}
+        self.stop_event = threading.Event()
+        self.responses = []
 
     def begin_monitoring(self):
         """
         Begin monitoring network traffic on the specified interface.
         """
+        asyncio.set_event_loop(asyncio.new_event_loop())
+
         logger.info(
             f"Monitoring network traffic on {self.interface} with BPF filter: {self.bpf_filter}"
         )
@@ -41,8 +47,21 @@ class PacketMonitor:
             bpf_filter=self.bpf_filter,
         )
 
-        for packet in capture.sniff_continuously():
-            self.process_packet(packet)
+        try:
+            for packet in capture.sniff_continuously():
+                if self.is_stopped():
+                    break
+
+                self.process_packet(packet)
+        finally:
+            capture.close()
+
+    def end_monitoring(self):
+        """
+        Stop monitoring network traffic.
+        """
+        logger.info("Stopping packet monitor")
+        self.stop_event.set()
 
     def process_packet(self, packet: Packet):
         """
@@ -108,7 +127,10 @@ class PacketMonitor:
             reconstructed_payload = self.__reconstruct_payload(ack)
             try:
                 response = MarketplaceResponse(reconstructed_payload)
-                logger.info(f"Marketplace response: {response.dump()}")
+                self.responses.append(response)
+                logger.info(
+                    f"Successfully parsed marketplace response with {len(response.items)} items"
+                )
             except ValueError as e:
                 logger.error(f"Failed to parse marketplace response: {e}")
 
@@ -122,6 +144,9 @@ class PacketMonitor:
             reconstructed_payload.extend(segment)
 
         return reconstructed_payload
+
+    def is_stopped(self):
+        return self.stop_event.is_set()
 
 
 def get_payload(packet: Packet) -> bytearray | None:
